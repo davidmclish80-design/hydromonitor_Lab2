@@ -9,10 +9,8 @@
 #include <ctype.h>
 
 // ADD YOUR IMPORTS HERE
-#include <Adafruit_NeoPixel.h>
-#include <DHT.h>
-
-
+#include <FastLED.h>          // FastLED by Daniel Garcia  (WS2812 control)
+#include <DHT.h>              // DHT sensor library by Adafruit
 
 #ifndef _WIFI_H 
 #include <WiFi.h>
@@ -34,8 +32,6 @@
 #include <ArduinoJson.h>
 #endif
 
- 
-
 // DEFINE VARIABLES
 #define ARDUINOJSON_USE_DOUBLE      1 
 
@@ -44,27 +40,29 @@
 #define DHTPIN     32
 #define DHTTYPE    DHT22
 
-//LED ARRAY
-#define NEOPIXEL_PIN 33 //LED ARRAY
-#define NUM_PIXELS 7
-#define brightness 
+// LED ARRAY (WS2812 / “LED module” = 7 addressable LEDs)
+#define LED_PIN     33
+#define NUM_LEDS    7
 
+// FastLED config
+#define LED_TYPE     WS2812B
+#define COLOR_ORDER  GRB
+
+// Default brightness (0–255). You can change this.
+static uint8_t gBrightness = 120;
 
 // MQTT CLIENT CONFIG  
 static const char* pubtopic      = "620171852";                    // Add your ID number here
 static const char* subtopic[]    = {"620171852_sub","/elet2415"};  // Array of Topics(Strings) to subscribe to
-static const char* mqtt_server   = "www.yanacreations";         // Broker IP address or Domain name as a String 
+static const char* mqtt_server   = "www.yanacreations";            // Broker IP address or Domain name as a String 
 static uint16_t mqtt_port        = 1883;
-//publish too pubtopic
-
+// publish to pubtopic
 
 // WIFI CREDENTIALS
 //const char* ssid       = "YOUR_SSID";     // Add your Wi-Fi ssid
 //const char* password   = "YOUR_PASSWORD"; // Add your Wi-Fi password 
-const char* ssid = "ARRIS-F53D"; // Add your Wi-Fi ssid 
-const char* password = "70DFF79FF53D"; // Add your Wi-Fi password
-
-
+const char* ssid = "ARRIS-F53D";           // Add your Wi-Fi ssid 
+const char* password = "70DFF79FF53D";     // Add your Wi-Fi password
 
 // TASK HANDLES 
 TaskHandle_t xMQTT_Connect          = NULL; 
@@ -85,17 +83,17 @@ void vUpdate( void * pvParameters );
 bool isNumber(double number);
 double square(double value);
 
-
 /* Declare your functions below */ 
 double convert_Celsius_to_fahrenheit(double c);
 double convert_fahrenheit_to_Celsius(double f);
 double calcHeatIndex(double Temp, double Humid);
-static void setAll(uint8_t r, uint8_t g, uint_8 b);
+static void setAll(uint8_t r, uint8_t g, uint8_t b);
 
-/* Init class Instances for the DHT22 etcc */
+/* Init class Instances for the DHT22 etc */
 DHT dht(DHTPIN, DHTTYPE);
-adafruit_NeoPixel strip(NUM_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800); 
-  
+
+// FastLED LED buffer
+CRGB leds[NUM_LEDS];
 
 //############### IMPORT HEADER FILES ##################
 #ifndef NTP_H
@@ -108,36 +106,28 @@ adafruit_NeoPixel strip(NUM_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 // Temporary Variables 
 
-
 void setup() {
   Serial.begin(115200);  // INIT SERIAL  
   
   // INITIALIZE ALL SENSORS AND DEVICES
   dht.begin();
 
-  strip.begin();
-  strip.setBrightness(brightness);
-  strip.show()
+  // FastLED init
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(gBrightness);
+  setAll(0, 0, 0); // start OFF
 
-  
   /* Add all other necessary sensor Initializations and Configurations here */
-
 
   initialize();     // INIT WIFI, MQTT & NTP 
   // vButtonCheckFunction(); // UNCOMMENT IF USING BUTTONS INT THIS LAB, THEN ADD LOGIC FOR INTERFACING WITH BUTTONS IN THE vButtonCheck FUNCTION
- }
-  
-
+}
 
 void loop() {
     // put your main code here, to run repeatedly:       
     vTaskDelay(1000 / portTICK_PERIOD_MS);    
 }
 
-
-
-
-  
 //####################################################################
 //#                          UTIL FUNCTIONS                          #       
 //####################################################################
@@ -160,57 +150,47 @@ void vUpdate( void * pvParameters )  {
           // ## This function must PUBLISH to topic every second. ##
           // #######################################################
    
-          StaticJsonDocument<256> doc; //JSON OBJECT CREATED
-
-          char message[256]  = {0}; //ARRAY MESSAGE TO HOLD DATA FROM JSON IN serializeJson(Doc, Message)
-
+          StaticJsonDocument<256> doc; // JSON OBJECT CREATED
+          char message[256]  = {0};   // ARRAY MESSAGE TO HOLD DATA FROM JSON IN serializeJson(doc, message)
 
           // 1. Read Humidity and save in variable below
           double h = dht.readHumidity();
            
-          // 2. Read temperature as Celsius   and save in variable below
+          // 2. Read temperature as Celsius and save in variable below
           double t = dht.readTemperature();    
-          
 
-          if(isNumber(t)){
-              // ##Publish update according to ‘{"id": "student_id", "timestamp": 1702212234, "temperature": 30, "humidity":90, "heatindex": 30}’
-              doc["id"]="620171852";
-              doc["timestamp"]=str(getTimeStamp());
-              doc["temperature"]= str(t);
-              doc["humidity"]= str(h);
-              doc["heatindex"]=str(calcHeatIndex(t,h));
+          if(isNumber(t) && isNumber(h)){
+              // ## Publish update according to:
+              // ‘{"id": "student_id", "timestamp": 1702212234, "temperature": 30, "humidity":90, "heatindex": 30}’
+              doc["id"] = "620171852";
+              doc["timestamp"] = (unsigned long)getTimeStamp();
+              doc["temperature"] = t;
+              doc["humidity"] = h;
+              doc["heatindex"] = calcHeatIndex(t, h);
 
-              serializeJson(Doc, Message);
-              if(mqtt.connected()){ publish(pubtopic, message); }
-          
+              serializeJson(doc, message);
+
+              if(mqtt.connected()){
+                publish(pubtopic, message);
+              }
 
               // 1. Create JSon object
-              
               // 2. Create message buffer/array to store serialized JSON object
-              
               // 3. Add key:value pairs to JSon object based on above schema
-
-              // 4. Seralize / Covert JSon object to JSon string and store in message array
-               
+              // 4. Serialize / Convert JSon object to JSon string and store in message array
               // 5. Publish message to a topic subscribed to by both backend and frontend                
-
           }
-
-          
             
         vTaskDelay(1000 / portTICK_PERIOD_MS);  
     }
 }
 
- 
-
 unsigned long getTimeStamp(void) {
           // RETURNS 10 DIGIT TIMESTAMP REPRESENTING CURRENT TIME
           time_t now;         
           time(&now); // Retrieve time[Timestamp] from system and save to &now variable
-          return now;
+          return (unsigned long)now;
 }
-
 
 void callback(char* topic, byte* payload, unsigned int length) {
   // ############## MQTT CALLBACK  ######################################
@@ -219,36 +199,66 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.printf("\nMessage received : ( topic: %s ) \n",topic ); 
   char *received = new char[length + 1] {0}; 
   
-  for (int i = 0; i < length; i++) { 
+  for (unsigned int i = 0; i < length; i++) { 
     received[i] = (char)payload[i];    
   }
 
   // PRINT RECEIVED MESSAGE
   Serial.printf("Payload : %s \n",received);
 
- 
   // CONVERT MESSAGE TO JSON
-  JsonDocument doc;
+  StaticJsonDocument<256> doc;
   DeserializationError error = deserializeJson(doc, received);  
 
   if (error) {
     Serial.print("deserializeJson() failed: ");
     Serial.println(error.c_str());
+    delete[] received;
     return;
   }
-
 
   // PROCESS MESSAGE
   const char* type = doc["type"]; 
 
-  if (strcmp(type, "controls") == 0){
-    // 1. EXTRACT ALL PARAMETERS: NODES, RED,GREEN, BLUE, AND BRIGHTNESS FROM JSON OBJECT
+  if (type && strcmp(type, "controls") == 0){
+    // 1. EXTRACT ALL PARAMETERS: LEDS, RED, GREEN, BLUE, AND BRIGHTNESS FROM JSON OBJECT
+    int ledCount = doc["leds"] | 0;
+    int brightness = doc["brightness"] | 0;
 
-    // 2. ITERATIVELY, TURN ON LED(s) BASED ON THE VALUE OF NODES. Ex IF NODES = 2, TURN ON 2 LED(s)
+    int r = doc["color"]["r"] | 0;
+    int g = doc["color"]["g"] | 0;
+    int b = doc["color"]["b"] | 0;
 
+    // Clamp values to safe ranges
+    if (ledCount < 0) ledCount = 0;
+    if (ledCount > NUM_LEDS) ledCount = NUM_LEDS;
+
+    if (brightness < 0) brightness = 0;
+    if (brightness > 255) brightness = 255;
+
+    if (r < 0) r = 0; if (r > 255) r = 255;
+    if (g < 0) g = 0; if (g > 255) g = 255;
+    if (b < 0) b = 0; if (b > 255) b = 255;
+
+    gBrightness = (uint8_t)brightness;
+    FastLED.setBrightness(gBrightness);
+
+    // 2. ITERATIVELY, TURN ON LED(s) BASED ON THE VALUE OF LEDS. Ex IF LEDS = 2, TURN ON 2 LED(s)
     // 3. ITERATIVELY, TURN OFF ALL REMAINING LED(s).
-   
+    // Lab requires iterating 0..6, using FastLED.show(), and a small vTaskDelay() for smooth execution.
+    for(int i = 0; i < NUM_LEDS; i++){
+      if(i < ledCount){
+        leds[i] = CRGB((uint8_t)r, (uint8_t)g, (uint8_t)b);
+      } else {
+        leds[i] = CRGB::Black;
+      }
+
+      FastLED.show();
+      vTaskDelay(30 / portTICK_PERIOD_MS); // small delay for smooth execution
+    }
   }
+
+  delete[] received;
 }
 
 bool publish(const char *topic, const char *payload){   
@@ -267,52 +277,53 @@ bool publish(const char *topic, const char *payload){
   return res;
 }
 
-
-
 //***** Complete the util functions below ******
 
 double convert_Celsius_to_fahrenheit(double c){    
     // CONVERTS INPUT FROM °C TO °F. RETURN RESULTS   
-    return (c*9/5)+32;  
+    return (c*9.0/5.0)+32.0;  
 }
 
 double convert_fahrenheit_to_Celsius(double f){    
     // CONVERTS INPUT FROM °F TO °C. RETURN RESULT
-    return (f-32)*5/9;    
+    return (f-32.0)*5.0/9.0;    
 }
 
 double calcHeatIndex(double Temp, double Humid){
     // CALCULATE AND RETURN HEAT INDEX USING EQUATION FOUND AT https://byjus.com/heat-index-formula/#:~:text=The%20heat%20index%20formula%20is,an%20implied%20humidity%20of%2020%25
-    double c = -42.379;
-    double c2= -2.04901523;
-    double c3= -10.14333127;
-    double c4= -0.22475541;
-    double c5= -6.83783 *0.001;
-    double c6= -5.481717*0.01;
-    double c7= -1.22874*0.001;
-    double c8=  8.5282*0.0001;
-    double c9= -1.99*0.000001;
+    double c  = -42.379;
+    double c2 = -2.04901523;
+    double c3 = -10.14333127;
+    double c4 = -0.22475541;
+    double c5 = -6.83783  * 0.001;
+    double c6 = -5.481717 * 0.01;
+    double c7 = -1.22874  * 0.001;
+    double c8 =  8.5282   * 0.0001;
+    double c9 = -1.99     * 0.000001;
 
-    
-    temp=convert_Celsius_to_fahrenheit(Temp);
-    double HI= c + c2*temp +c3*humid + c4*temp*humid + c5*square(temp) +c6*square(humid)+ c7*square(temp)*humid + c8*temp*square(humid) + c9*square(temp)*square(humid);
-    
+    double temp = convert_Celsius_to_fahrenheit(Temp);
+    double humid = Humid;
+
+    double HI = c + c2*temp + c3*humid + c4*temp*humid
+                + c5*square(temp) + c6*square(humid)
+                + c7*square(temp)*humid
+                + c8*temp*square(humid)
+                + c9*square(temp)*square(humid);
+
+    // LAB REQUIRES FORMULA ABOVE 
     return HI;
 }
- 
 
 bool isNumber(double number){       
-        char item[20];
-        snprintf(item, sizeof(item), "%f\n", number);
-        if( isdigit(item[0]) )
-          return true;
-        return false; 
-} 
-
-static void setAll(uint8_t r, uint8_t g, uint8_t b){
-  for(int i=0, i<NUM_PIXELS; i++){strip.setPixelColor(i, strip.Color(r,g,b));
-  strip.show();
-  }
+    // A cleaner “is valid number” check for sensor reads
+    return (!isnan(number) && !isinf(number));
 }
 
-double square (double value){return value*value;}
+static void setAll(uint8_t r, uint8_t g, uint8_t b){
+  for(int i = 0; i < NUM_LEDS; i++){
+    leds[i] = CRGB(r, g, b);
+  }
+  FastLED.show();
+}
+
+double square (double value){ return value*value; }
