@@ -30,6 +30,9 @@ WiFiClient espClient;
 PubSubClient mqtt(espClient); 
  
 
+// Run-once guards (prevents duplicate task creation)
+static bool mqttStarted = false;
+static bool ntpStarted  = false;
 
 //###############################################
 //#        DO NOT MODIFY ANY CODE BELOW         # 
@@ -94,7 +97,7 @@ void MQTT_ConnectFunction( void ) {
   xReturned = xTaskCreatePinnedToCore(
                 MQTT_Connect,     /* Function that implements the task. */
                 "MQTT CONNECT",    /* Text name for the task. */
-                2048,                     /* Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) */
+                4096,                     /* Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) */
                 ( void * ) 1,             /* Parameter passed into the task. */
                 8,                        /* Priority at which the task is created. */
                 &xMQTT_Connect,    /* Used to pass out the created task's handle. */
@@ -130,7 +133,7 @@ void vLOOPFunction( void ) {
     xReturned = xTaskCreatePinnedToCore(
                     vLOOP,               // Function that implements the task. 
                     "vLOOP",    // Text name for the task. 
-                    8096,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
+                    12288,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
                     ( void * ) 1,       // Parameter passed into the task. 
                     15,                  // Priority at which the task is created. 
                     &xLOOPHandle,        // Used to pass out the created task's handle. 
@@ -145,7 +148,31 @@ void vLOOPFunction( void ) {
     }
 }
 
+
 void initMQTT(void){ 
+
+    // Prevent starting MQTT tasks more than once
+    if (mqttStarted) {
+      Serial.println("initMQTT() already started - skipping");
+      return;
+    }
+    mqttStarted = true;
+
+    Serial.printf("\nMQTT Server : %s   PORT : %d \n", mqtt_server, mqtt_port ); 
+    mqtt.setServer(mqtt_server, mqtt_port);
+    mqtt.setCallback(callback);
+
+    mqtt.setBufferSize(2000);
+    mqtt.setKeepAlive(15);
+    mqtt.setSocketTimeout(15);
+
+    Serial.println("initMQTT() done. Starting MQTT tasks...");
+
+    MQTT_ConnectFunction();  
+    vLOOPFunction();  
+}
+
+/*void initMQTT(void){ 
 
 
     Serial.printf("\nMQTT Server : %s   PORT : %d \n", mqtt_server, mqtt_port ); 
@@ -161,7 +188,7 @@ void initMQTT(void){
 
     MQTT_ConnectFunction();  
     vLOOPFunction();  
-}
+}*/
 
 
 //********************************************************************************************
@@ -184,9 +211,35 @@ void checkHEAP(const char* Name){
 
 }
 
-
 void initialize(void){
-  vNTPFunction();     // INIT NTP PROTOCOL FOR TIME KEEPING   
+
+  Serial.printf("Connecting to %s \n", ssid);
+  WiFi.begin(ssid, password);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - start) < 20000) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\nWiFi FAILED - stopping here");
+    return;
+  }
+
+  Serial.println("\n\n***** Wi-Fi CONNECTED! *****\n\n");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // STOP HERE FOR TEST
+  initMQTT();
+  vUpdateFunction();
+  vNTPFunction();
+}
+
+
+/*void initialize(void){
+   
 
   //CONNECT TO WIFI
   Serial.printf("Connecting to %s \n", ssid);
@@ -198,11 +251,11 @@ void initialize(void){
   }
 
   Serial.println("\n\n***** Wi-Fi CONNECTED! *****\n\n");
-   
+  // vNTPFunction();     // INIT NTP PROTOCOL FOR TIME KEEPING  
   initMQTT();          // INIT MQTT  
   vUpdateFunction();
    
-}
+}*/
 
 /*
 TASK TEMPLATE
