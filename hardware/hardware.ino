@@ -4,11 +4,13 @@
 //##################################################################################################################
 
 // LIBRARY IMPORTS
-#include <rom/rtc.h> 
+#include <esp_sleep.h>
 #include <math.h>  // https://www.tutorialspoint.com/c_standard_library/math_h.htm 
 #include <ctype.h>
 
 // ADD YOUR IMPORTS HERE
+#include <Adafruit_NeoPixel.h>
+#include <DHT.h>
 
 
 
@@ -37,21 +39,30 @@
 // DEFINE VARIABLES
 #define ARDUINOJSON_USE_DOUBLE      1 
 
-// DEFINE THE CONTROL PINS FOR THE DHT22 
+// DEFINE THE CONTROL PINS FOR THE DHT22 (LED ARRAY INCLUDED)
+// ---- PIN DEFINITIONS ----
+#define DHTPIN     32
+#define DHTTYPE    DHT22
 
-
+//LED ARRAY
+#define NEOPIXEL_PIN 33 //LED ARRAY
+#define NUM_PIXELS 7
+#define brightness 
 
 
 // MQTT CLIENT CONFIG  
-static const char* pubtopic      = "620012345";                    // Add your ID number here
-static const char* subtopic[]    = {"620012345_sub","/elet2415"};  // Array of Topics(Strings) to subscribe to
-static const char* mqtt_server   = "local";         // Broker IP address or Domain name as a String 
+static const char* pubtopic      = "620171852";                    // Add your ID number here
+static const char* subtopic[]    = {"620171852_sub","/elet2415"};  // Array of Topics(Strings) to subscribe to
+static const char* mqtt_server   = "www.yanacreations";         // Broker IP address or Domain name as a String 
 static uint16_t mqtt_port        = 1883;
+//publish too pubtopic
+
 
 // WIFI CREDENTIALS
-const char* ssid       = "YOUR_SSID";     // Add your Wi-Fi ssid
-const char* password   = "YOUR_PASSWORD"; // Add your Wi-Fi password 
-
+//const char* ssid       = "YOUR_SSID";     // Add your Wi-Fi ssid
+//const char* password   = "YOUR_PASSWORD"; // Add your Wi-Fi password 
+const char* ssid = "ARRIS-F53D"; // Add your Wi-Fi ssid 
+const char* password = "70DFF79FF53D"; // Add your Wi-Fi password
 
 
 
@@ -72,16 +83,18 @@ bool publish(const char *topic, const char *payload); // PUBLISH MQTT MESSAGE(PA
 void vButtonCheck( void * pvParameters );
 void vUpdate( void * pvParameters );  
 bool isNumber(double number);
- 
+double square(double value);
+
 
 /* Declare your functions below */ 
 double convert_Celsius_to_fahrenheit(double c);
 double convert_fahrenheit_to_Celsius(double f);
 double calcHeatIndex(double Temp, double Humid);
-
+static void setAll(uint8_t r, uint8_t g, uint_8 b);
 
 /* Init class Instances for the DHT22 etcc */
- 
+DHT dht(DHTPIN, DHTTYPE);
+adafruit_NeoPixel strip(NUM_PIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800); 
   
 
 //############### IMPORT HEADER FILES ##################
@@ -98,8 +111,14 @@ double calcHeatIndex(double Temp, double Humid);
 
 void setup() {
   Serial.begin(115200);  // INIT SERIAL  
-
+  
   // INITIALIZE ALL SENSORS AND DEVICES
+  dht.begin();
+
+  strip.begin();
+  strip.setBrightness(brightness);
+  strip.show()
+
   
   /* Add all other necessary sensor Initializations and Configurations here */
 
@@ -141,15 +160,29 @@ void vUpdate( void * pvParameters )  {
           // ## This function must PUBLISH to topic every second. ##
           // #######################################################
    
+          StaticJsonDocument<256> doc; //JSON OBJECT CREATED
+
+          char message[256]  = {0}; //ARRAY MESSAGE TO HOLD DATA FROM JSON IN serializeJson(Doc, Message)
+
+
           // 1. Read Humidity and save in variable below
-          double h = 0;
+          double h = dht.readHumidity();
            
           // 2. Read temperature as Celsius   and save in variable below
-          double t = 0;    
- 
+          double t = dht.readTemperature();    
+          
 
           if(isNumber(t)){
               // ##Publish update according to ‘{"id": "student_id", "timestamp": 1702212234, "temperature": 30, "humidity":90, "heatindex": 30}’
+              doc["id"]="620171852";
+              doc["timestamp"]=str(getTimeStamp());
+              doc["temperature"]= str(t);
+              doc["humidity"]= str(h);
+              doc["heatindex"]=str(calcHeatIndex(t,h));
+
+              serializeJson(Doc, Message);
+              if(mqtt.connected()){ publish(pubtopic, message); }
+          
 
               // 1. Create JSon object
               
@@ -159,7 +192,7 @@ void vUpdate( void * pvParameters )  {
 
               // 4. Seralize / Covert JSon object to JSon string and store in message array
                
-              // 5. Publish message to a topic sobscribed to by both backend and frontend                
+              // 5. Publish message to a topic subscribed to by both backend and frontend                
 
           }
 
@@ -239,16 +272,32 @@ bool publish(const char *topic, const char *payload){
 //***** Complete the util functions below ******
 
 double convert_Celsius_to_fahrenheit(double c){    
-    // CONVERTS INPUT FROM °C TO °F. RETURN RESULTS     
+    // CONVERTS INPUT FROM °C TO °F. RETURN RESULTS   
+    return (c*9/5)+32;  
 }
 
 double convert_fahrenheit_to_Celsius(double f){    
-    // CONVERTS INPUT FROM °F TO °C. RETURN RESULT    
+    // CONVERTS INPUT FROM °F TO °C. RETURN RESULT
+    return (f-32)*5/9;    
 }
 
 double calcHeatIndex(double Temp, double Humid){
     // CALCULATE AND RETURN HEAT INDEX USING EQUATION FOUND AT https://byjus.com/heat-index-formula/#:~:text=The%20heat%20index%20formula%20is,an%20implied%20humidity%20of%2020%25
-  
+    double c = -42.379;
+    double c2= -2.04901523;
+    double c3= -10.14333127;
+    double c4= -0.22475541;
+    double c5= -6.83783 *0.001;
+    double c6= -5.481717*0.01;
+    double c7= -1.22874*0.001;
+    double c8=  8.5282*0.0001;
+    double c9= -1.99*0.000001;
+
+    
+    temp=convert_Celsius_to_fahrenheit(Temp);
+    double HI= c + c2*temp +c3*humid + c4*temp*humid + c5*square(temp) +c6*square(humid)+ c7*square(temp)*humid + c8*temp*square(humid) + c9*square(temp)*square(humid);
+    
+    return HI;
 }
  
 
@@ -259,3 +308,11 @@ bool isNumber(double number){
           return true;
         return false; 
 } 
+
+static void setAll(uint8_t r, uint8_t g, uint8_t b){
+  for(int i=0, i<NUM_PIXELS; i++){strip.setPixelColor(i, strip.Color(r,g,b));
+  strip.show();
+  }
+}
+
+double square (double value){return value*value;}
