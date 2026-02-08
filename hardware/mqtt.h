@@ -69,7 +69,9 @@ void MQTT_Connect( void * pvParameters ){
             const uint8_t size = sizeof(subtopic)/sizeof(subtopic[0]);
             for(int x = 0; x< size ; x++){
               mqtt.subscribe(subtopic[x]);
-            } 
+            }
+            
+ 
             break;
         } 
         else {
@@ -145,10 +147,14 @@ void vLOOPFunction( void ) {
 
 void initMQTT(void){ 
 
+
     Serial.printf("\nMQTT Server : %s   PORT : %d \n", mqtt_server, mqtt_port ); 
     mqtt.setServer(mqtt_server,  mqtt_port); // Configure the MQTT server with IPaddress and port    stationInfo.remoteMqttPort
+    Serial.println("initMQTT() done. Starting MQTT tasks...");
+
     mqtt.setCallback(callback); // This function will be invoked when client received subscribed topic 
-    
+    Serial.println("initMQTT() done. Starting MQTT tasks...");
+
     mqtt.setBufferSize(2000);
     mqtt.setKeepAlive(15);
     mqtt.setSocketTimeout(15);    

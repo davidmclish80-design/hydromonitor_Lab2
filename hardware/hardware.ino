@@ -54,7 +54,7 @@ static uint8_t gBrightness = 120;
 // MQTT CLIENT CONFIG  
 static const char* pubtopic      = "620171852";                    // Add your ID number here
 static const char* subtopic[]    = {"620171852_sub","/elet2415"};  // Array of Topics(Strings) to subscribe to
-static const char* mqtt_server   = "www.yanacreations";            // Broker IP address or Domain name as a String 
+static const char* mqtt_server   = "www.yanacreations.com";            // Broker IP address or Domain name as a String 
 static uint16_t mqtt_port        = 1883;
 // publish to pubtopic
 
@@ -120,6 +120,9 @@ void setup() {
   /* Add all other necessary sensor Initializations and Configurations here */
 
   initialize();     // INIT WIFI, MQTT & NTP 
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
   // vButtonCheckFunction(); // UNCOMMENT IF USING BUTTONS INT THIS LAB, THEN ADD LOGIC FOR INTERFACING WITH BUTTONS IN THE vButtonCheck FUNCTION
 }
 
@@ -195,7 +198,10 @@ unsigned long getTimeStamp(void) {
 void callback(char* topic, byte* payload, unsigned int length) {
   // ############## MQTT CALLBACK  ######################################
   // RUNS WHENEVER A MESSAGE IS RECEIVED ON A TOPIC SUBSCRIBED TO
-  
+  Serial.println("CALLBACK FIRED");
+  Serial.printf("RX topic=%s len=%u\n", topic, length);
+
+
   Serial.printf("\nMessage received : ( topic: %s ) \n",topic ); 
   char *received = new char[length + 1] {0}; 
   

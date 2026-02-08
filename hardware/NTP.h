@@ -137,7 +137,7 @@ void vNTP( void * pvParameters ) {
       // NTP.printLocalTime();     // it will take some time to sync time :)  
       // NTP.getTime();
       // checkHEAP("NTP");   
-      vTaskDelay(60000 / portTICK_PERIOD_MS);  // DELAY FOR 5 SECONDS  
+      vTaskDelay(5000 / portTICK_PERIOD_MS);  // DELAY FOR 5 SECONDS  
     }     
  }
 
@@ -151,7 +151,7 @@ void vNTPFunction( void ) {
     xReturned = xTaskCreatePinnedToCore(
                     vNTP,               // Function that implements the task. 
                     "NTP Protocol",     // Text name for the task. 
-                    1500,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
+                    8192,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
                     ( void * ) 1,       // Parameter passed into the task. 
                     12,                  // Priority at which the task is created. 
                     &xNTPHandle,        // Used to pass out the created task's handle. 
