@@ -213,6 +213,7 @@ void checkHEAP(const char* Name){
 
 void initialize(void){
 
+  
   Serial.printf("Connecting to %s \n", ssid);
   WiFi.begin(ssid, password);
 
@@ -231,6 +232,7 @@ void initialize(void){
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
+  
   // STOP HERE FOR TEST
   initMQTT();
   vUpdateFunction();
@@ -328,7 +330,7 @@ void vUpdateFunction( void ) {
     xReturned = xTaskCreatePinnedToCore(
                     vUpdate,               // Function that implements the task. 
                     "vUpdate",    // Text name for the task. 
-                    4096,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
+                    12288,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
                     ( void * ) 1,       // Parameter passed into the task. 
                     6,                  // Priority at which the task is created. 
                     &xUpdateHandle,        // Used to pass out the created task's handle. 

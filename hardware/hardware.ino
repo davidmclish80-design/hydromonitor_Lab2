@@ -59,10 +59,11 @@ static uint16_t mqtt_port        = 1883;
 // publish to pubtopic
 
 // WIFI CREDENTIALS
-//const char* ssid       = "YOUR_SSID";     // Add your Wi-Fi ssid
-//const char* password   = "YOUR_PASSWORD"; // Add your Wi-Fi password 
-const char* ssid = "ARRIS-F53D";           // Add your Wi-Fi ssid 
-const char* password = "70DFF79FF53D";     // Add your Wi-Fi password
+
+
+//const char* ssid       = "MonaConnect";     // Add your Wi-Fi ssid
+//const char* password   = ""; // Add your Wi-Fi password 
+
 
 // TASK HANDLES 
 TaskHandle_t xMQTT_Connect          = NULL; 
@@ -127,6 +128,8 @@ void setup() {
 }
 
 void loop() {
+
+  
     // put your main code here, to run repeatedly:       
     vTaskDelay(1000 / portTICK_PERIOD_MS);    
 }
@@ -161,7 +164,7 @@ void vUpdate( void * pvParameters )  {
            
           // 2. Read temperature as Celsius and save in variable below
           double t = dht.readTemperature();    
-
+          
           if(isNumber(t) && isNumber(h)){
               // ## Publish update according to:
               // ‘{"id": "student_id", "timestamp": 1702212234, "temperature": 30, "humidity":90, "heatindex": 30}’
@@ -172,7 +175,7 @@ void vUpdate( void * pvParameters )  {
               doc["heatindex"] = calcHeatIndex(t, h);
 
               serializeJson(doc, message);
-
+              
               if(mqtt.connected()){
                 publish(pubtopic, message);
               }
@@ -295,30 +298,37 @@ double convert_fahrenheit_to_Celsius(double f){
     return (f-32.0)*5.0/9.0;    
 }
 
-double calcHeatIndex(double Temp, double Humid){
-    // CALCULATE AND RETURN HEAT INDEX USING EQUATION FOUND AT https://byjus.com/heat-index-formula/#:~:text=The%20heat%20index%20formula%20is,an%20implied%20humidity%20of%2020%25
-    double c  = -42.379;
-    double c2 = -2.04901523;
-    double c3 = -10.14333127;
-    double c4 = -0.22475541;
-    double c5 = -6.83783  * 0.001;
-    double c6 = -5.481717 * 0.01;
-    double c7 = -1.22874  * 0.001;
-    double c8 =  8.5282   * 0.0001;
-    double c9 = -1.99     * 0.000001;
+double calcHeatIndex(double TempC, double Humid){
+  // 1) Clamp humidity to valid range
+  if (Humid < 0) Humid = 0;
+  if (Humid > 100) Humid = 100;
 
-    double temp = convert_Celsius_to_fahrenheit(Temp);
-    double humid = Humid;
+  // 2) If temp is low, heat index ~ actual temperature (avoid regression nonsense)
+  //    NOAA heat index regression is mainly for warm conditions (~>= 26.7C / 80F)
+  if (TempC < 26.7) {
+    return TempC;  // keep everything in Celsius to match your DB temperature
+  }
 
-    double HI = c + c2*temp + c3*humid + c4*temp*humid
-                + c5*square(temp) + c6*square(humid)
-                + c7*square(temp)*humid
-                + c8*temp*square(humid)
-                + c9*square(temp)*square(humid);
+  // 3) Convert C -> F for the NOAA regression
+  double T = convert_Celsius_to_fahrenheit(TempC);
+  double R = Humid;
 
-    // LAB REQUIRES FORMULA ABOVE 
-    return HI;
+  // 4) NOAA regression gives heat index in Fahrenheit
+  double HI_F =
+    -42.379
+    + 2.04901523*T
+    + 10.14333127*R
+    - 0.22475541*T*R
+    - 0.00683783*T*T
+    - 0.05481717*R*R
+    + 0.00122874*T*T*R
+    + 0.00085282*T*R*R
+    - 0.00000199*T*T*R*R;
+
+  // 5) Convert back to Celsius so DB stays consistent
+  return convert_fahrenheit_to_Celsius(HI_F);
 }
+
 
 bool isNumber(double number){       
     // A cleaner “is valid number” check for sensor reads

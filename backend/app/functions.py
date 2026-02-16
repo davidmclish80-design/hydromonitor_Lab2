@@ -122,6 +122,14 @@ def main():
     from math import floor
     from datetime import datetime, timedelta
     one = DB(Config)
+    test = {
+    "id": "TEST",
+    "timestamp": 0,
+    "temperature": 99,
+    "humidity": 55,
+    "heatindex": 100}
+    print("INSERT RESULT:", one.addUpdate(test))
+
  
  
     start = time() 
