@@ -30,7 +30,15 @@ def get_all(start,end):
     '''RETURNS ALL THE DATA FROM THE DATABASE THAT EXIST IN BETWEEN THE START AND END TIMESTAMPS'''
    
     if request.method == "GET":
-        '''Add your code here to complete this route'''
+        #'''Add your code here to complete this route'''
+        start=int(start)
+        end=int(end)
+        data= mongo.getAllInRange(start,end)
+
+        if data is not None and len(data)>0:
+            return jsonify({"status": "Success", "data":data})
+        #can be "data":data[index u want to return] ### just like that ###.
+    
 
     # FILE DATA NOT EXIST
     return jsonify({"status":"not found","data":[]})
@@ -42,7 +50,13 @@ def get_temperature_mmar(start,end):
     '''RETURNS MIN, MAX, AVG AND RANGE FOR TEMPERATURE. THAT FALLS WITHIN THE START AND END DATE RANGE'''
    
     if request.method == "GET": 
-        '''Add your code here to complete this route'''
+        #'''Add your code here to complete this route'''
+        start=int(start)
+        end=int(end)
+        data=mongo.temperatureMMAR(start, end)
+
+        if data is not None and len(data)>0:
+            return jsonify({"Status_T":"Success", "data": data[0] })
 
     # FILE DATA NOT EXIST
     return jsonify({"status":"not found","data":[]})
@@ -56,7 +70,13 @@ def get_humidity_mmar(start,end):
     '''RETURNS MIN, MAX, AVG AND RANGE FOR HUMIDITY. THAT FALLS WITHIN THE START AND END DATE RANGE'''
    
     if request.method == "GET": 
-        '''Add your code here to complete this route'''
+        #'''Add your code here to complete this route'''
+        start=int(start)
+        end=int(end)
+        data=mongo.humidityMMAR(start,end)
+
+        if data is not None and len(data)>0:
+            return jsonify({"status_H": "Success", "data": data[0]})
 
     # FILE DATA NOT EXIST
     return jsonify({"status":"not found","data":[]})
@@ -67,10 +87,23 @@ def get_humidity_mmar(start,end):
 
 @app.route('/api/frequency/<variable>/<start>/<end>', methods=['GET']) 
 def get_freq_distro(variable,start,end):   
-    '''RETURNS FREQUENCY DISTRIBUTION FOR SPECIFIED VARIABLE'''
+    #'''RETURNS FREQUENCY DISTRIBUTION FOR SPECIFIED VARIABLE'''
    
     if request.method == "GET": 
-        '''Add your code here to complete this route'''         
+        #'''Add your code here to complete this route'''   
+        start=int(start)
+        end=int(end)
+
+        #protects against bad variable names
+        allowed={"temperature","humidity","heatindex"}
+        if variable not in allowed:
+            return jsonify({"status": "failed", "message": f"Invalid variable'{variable}'"}), 400
+
+        
+        data=mongo.frequencyDistro(variable,start,end)
+
+        if data is not None and len(data)>0:
+            return jsonify({"status":"Success", "data": data})      
 
     # FILE DATA NOT EXIST
     return jsonify({"status":"not found","data":[]})
