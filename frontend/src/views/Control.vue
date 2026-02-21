@@ -110,11 +110,6 @@ const lastPublishStatus = ref("No messages yet");
 // Connect when page loads
 onMounted(() => {
   Mqtt.connect();
-   setTimeout( ()=>
-    {
-    Mqtt.subscribe("620171852")
-    Mqtt.subscribe("620171852_sub")
-    },1000)
 });
 
 // Disconnect/unsubscribe when leaving page

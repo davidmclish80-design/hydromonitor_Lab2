@@ -52,16 +52,18 @@
             color="primary"
             density="compact"
             rounded="lg"
+            align="center"
           >
             <v-card-item class="mb-n5">
+            <div style="width: 100%;"> 
               <v-chip-group
-                class="d-flex flex-row justify-center"
+                class="d-flex flex-row justify-center" 
                 color="primaryContainer"
                 variant="flat"
               >
                 <v-tooltip text="Min" location="start">
                   <template #activator="{ props }">
-                    <v-chip v-bind="props">{{ temperature.min }}</v-chip>
+                    <v-chip v-bind="props">{{ temperature.min }}</v-chip>                  
                   </template>
                 </v-tooltip>
 
@@ -77,6 +79,7 @@
                   </template>
                 </v-tooltip>
               </v-chip-group>
+            </div>
             </v-card-item>
 
             <v-card-item align="center">
@@ -96,6 +99,7 @@
             color="primary"
             density="compact"
             rounded="lg"
+            align="center"
           >
             <v-card-item class="mb-n5">
               <v-chip-group
@@ -174,6 +178,9 @@
 
 <script setup>
 /** JAVASCRIPT HERE */
+
+//APPARENTLY V-TOOLTIP DOESNT USE ALIGN="CENTER"
+//WRITING WORDS BETWEEN TEMPLATEs LEAD TO THE PAGE DISPLAYING THE WORDS WRITTEN THERE
 
 // IMPORTS
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from "vue";
@@ -254,7 +261,7 @@ function toUnixRange() {
 function createCharts() {
   // 1) Temperature + Heat Index line chart (container)
   tempChart.value = Highcharts.chart("container", {
-    chart: { zoomType: "x" },
+    chart: { zoomType: "x",backgroundColor: "#101010", },
     title: { text: "Temperature and Heat Index Analysis", align: "left" },
     subtitle: {
       text:
@@ -271,7 +278,7 @@ function createCharts() {
 
   // 2) Humidity line chart (container0)
   humidChart.value = Highcharts.chart("container0", {
-    chart: { zoomType: "x" },
+    chart: { zoomType: "x",backgroundColor: "#101010", },
     title: { text: "Humidity Analysis", align: "left" },
     xAxis: { type: "datetime", title: { text: "Time" } },
     yAxis: { title: { text: "" }, labels: { format: "{value} %" } },
@@ -281,7 +288,7 @@ function createCharts() {
 
   // 3) Frequency distribution column chart (container1)
   histogramChart.value = Highcharts.chart("container1", {
-    chart: { type: "column", zoomType: "x" },
+    chart: { type: "column", zoomType: "x",backgroundColor: "#101010", },
     title: { text: "Frequency Distribution Analysis", align: "left" },
     xAxis: { title: { text: "Bins" } },
     yAxis: { title: { text: "Count" } },
@@ -295,7 +302,7 @@ function createCharts() {
 
   // 4) Scatter: Temp vs Heat Index (container2)
   scatterTHI.value = Highcharts.chart("container2", {
-    chart: { type: "scatter", zoomType: "x" },
+    chart: { type: "scatter", zoomType: "x",backgroundColor: "#101010", },
     title: { text: "Temperature & Heat Index Correlation Analysis", align: "left" },
     subtitle: { text: "Visualize the relationship between Temperature and Heat Index as well as revealing patterns or trends in the data" },
     xAxis: { title: { text: "Temperature" }, labels: { format: "{value} °C" } },
@@ -306,7 +313,7 @@ function createCharts() {
 
   // 5) Scatter: Humidity vs Heat Index (container3)
   scatterHHI.value = Highcharts.chart("container3", {
-    chart: { type: "scatter", zoomType: "x" },
+    chart: { type: "scatter", zoomType: "x",backgroundColor: "#101010", },
     title: { text: "Humidity & Heat Index Correlation Analysis", align: "left" },
     subtitle: { text: "Visualize the relationship between Humidity and Heat Index as well as revealing patterns or trends in the data" },
     xAxis: { title: { text: "Humidity" }, labels: { format: "{value} %" } },
@@ -452,5 +459,6 @@ onBeforeUnmount(() => {
   padding: 12px;
   border-radius: 8px;
 }
+
 </style>
 
